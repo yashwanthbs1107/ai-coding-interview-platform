@@ -1,7 +1,8 @@
-from sqlalchemy import Column, Integer, String
-from sqlalchemy.orm import declarative_base
+from sqlalchemy import Column, Integer, String, ForeignKey, Text
 
-Base = declarative_base()
+from database import Base
+
+
 
 
 class Problem(Base):
@@ -10,3 +11,20 @@ class Problem(Base):
     id = Column(Integer, primary_key=True)
     problem = Column(String, nullable=False)
     difficulty = Column(String, nullable=False)
+
+
+class Submission(Base):
+    __tablename__="submissions"
+    id=Column(Integer,primary_key=True)
+    problem_id=Column(Integer,ForeignKey("problems.id"),nullable=False)
+    code=Column(Text,nullable=False)
+    language=Column(String,nullable=False)
+    status=Column(String,nullable=False)
+
+
+class Users(Base):
+    __tablename__="users"
+    id=Column(Integer,primary_key=True)
+    username=Column(String,nullable=False)
+    email=Column(String,nullable=False)
+    password=Column(String,nullable=False)

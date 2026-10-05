@@ -3,6 +3,9 @@ import os
 from dotenv import load_dotenv
 from sqlalchemy import create_engine,text
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import declarative_base
+
+Base=declarative_base()
 
 load_dotenv()
 
@@ -19,8 +22,11 @@ SessionLocal = sessionmaker(
 print("SQLAlchemy engine created!")
 
 
-with engine.connect() as connection:
-    result=connection.execute(text("SELECT*from problems;"))
-    rows=result.fetchall()
 
-    print(rows)
+
+def get_db():
+    db=SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
