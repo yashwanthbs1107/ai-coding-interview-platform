@@ -12,15 +12,15 @@ class Problem(Base):
     problem = Column(String, nullable=False)
     difficulty = Column(String, nullable=False)
 
-
 class Submission(Base):
-    __tablename__="submissions"
-    id=Column(Integer,primary_key=True)
-    problem_id=Column(Integer,ForeignKey("problems.id"),nullable=False)
-    code=Column(Text,nullable=False)
-    language=Column(String,nullable=False)
-    status=Column(String,nullable=False)
+    __tablename__ = "submissions"
 
+    id = Column(Integer, primary_key=True)
+    problem_id = Column(Integer, ForeignKey("problems.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    code = Column(Text, nullable=False)
+    language = Column(String, nullable=False)
+    status = Column(String, nullable=False)
 
 class Users(Base):
     __tablename__="users"

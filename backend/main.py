@@ -1,3 +1,4 @@
+
 from fastapi import FastAPI, HTTPException, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -13,10 +14,50 @@ app = FastAPI()
 
 
 # -------------------------
-# OAuth2
+# Security
 # -------------------------
 
 security = HTTPBearer()
+
+
+# -------------------------
+# JWT - Current User
+# -------------------------
+
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db)
+):
+    token = credentials.credentials
+
+    payload = verify_access_token(token)
+
+    if payload is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or expired token"
+        )
+
+    user_id = payload.get("sub")
+
+    if user_id is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid token"
+        )
+
+    user = db.query(Users).filter(
+        Users.id == int(user_id)
+    ).first()
+
+    if user is None:
+        raise HTTPException(
+            status_code=401,
+            detail="User doesn't exist"
+        )
+
+    return user
+
 
 # -------------------------
 # Pydantic Schemas
@@ -37,12 +78,6 @@ class UserCreate(BaseModel):
 class UserLogin(BaseModel):
     email: str
     password: str
-
-
-# -------------------------
-# JWT - Current User
-# -------------------------
-
 
 
 # -------------------------
@@ -106,7 +141,8 @@ def get_problem(
 @app.post("/submissions", status_code=201)
 def create_submission(
     submission: SubmissionCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Users = Depends(get_current_user)
 ):
     problem = db.query(Problem).filter(
         Problem.id == submission.problem_id
@@ -119,6 +155,7 @@ def create_submission(
         )
 
     new_submission = Submission(
+        user_id=current_user.id,
         problem_id=submission.problem_id,
         code=submission.code,
         language=submission.language,
@@ -197,11 +234,7 @@ def login(
     token = create_access_token({
         "sub": str(user.id)
     })
-    print("LOGIN TOKEN:")
-    print(token)
 
-    print("LOGIN TOKEN DECODE:")
-    print(verify_access_token(token))
     return {
         "access_token": token,
         "token_type": "bearer"
@@ -211,40 +244,6 @@ def login(
 # -------------------------
 # Protected /me
 # -------------------------
-def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Session = Depends(get_db)
-):
-    token = credentials.credentials
-
-    payload = verify_access_token(token)
-
-    if payload is None:
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid or expired token"
-        )
-
-    user_id = payload.get("sub")
-
-    if user_id is None:
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid token"
-        )
-
-    user = db.query(Users).filter(
-        Users.id == int(user_id)
-    ).first()
-
-    if user is None:
-        raise HTTPException(
-            status_code=401,
-            detail="User doesn't exist"
-        )
-
-    return user
-
 
 @app.get("/me")
 def get_me(
@@ -255,3 +254,19 @@ def get_me(
         "username": current_user.username,
         "email": current_user.email
     }
+
+
+@app.get("/submissions")
+def get_my_submissions(
+    db:Session=Depends(get_db),
+    current_user:Users=Depends(get_current_user)
+):
+    submissions=db.query(Submission).filter(
+        Submission.user_id==current_user.id
+    ).all()
+    if not submissions:
+        raise HTTPException(
+            status_code=404,
+            detail="No Submissions Found"
+        )
+    return submissions
