@@ -1,0 +1,33 @@
+Sliding Window
+
+The Sliding Window technique is used to process contiguous portions of an array or string efficiently.
+
+A window represents a current range between two indices, usually called left and right.
+
+Instead of recalculating the result for every possible range, the window is expanded or shrunk while maintaining the required condition.
+
+Common patterns:
+
+1. Fixed-size window:
+The window has a constant size.
+
+2. Variable-size window:
+The right pointer expands the window and the left pointer shrinks it when a condition is violated.
+
+Sliding Window is commonly useful for:
+- Subarray problems.
+- Substring problems.
+- Finding maximum or minimum values in ranges.
+- Problems involving contiguous elements.
+
+Time Complexity:
+Many Sliding Window solutions run in O(n) because each element is added to and removed from the window at most a limited number of times.
+
+Space Complexity:
+Usually O(1), unless an additional data structure such as a frequency map is required.
+
+Common mistakes:
+- Incorrectly updating the left pointer.
+- Forgetting to update the current window state.
+- Confusing contiguous subarrays with subsequences.
+- Failing to shrink the window when the condition is violated.

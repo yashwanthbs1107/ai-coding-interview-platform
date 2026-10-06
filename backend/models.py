@@ -21,6 +21,7 @@ class Submission(Base):
     code = Column(Text, nullable=False)
     language = Column(String, nullable=False)
     status = Column(String, nullable=False)
+    ai_feedback=Column(Text,nullable=True)
 
 class Users(Base):
     __tablename__="users"

@@ -8,8 +8,11 @@ from auth import hash_password, verify_password
 from database import get_db
 from models import Problem, Submission, Users
 from jwt_utils import create_access_token, verify_access_token
-
-
+import json
+import subprocess
+import tempfile
+import os
+from rag_service import get_rag_context
 app = FastAPI()
 
 
@@ -68,6 +71,9 @@ class SubmissionCreate(BaseModel):
     code: str
     language: str
 
+
+class RunRequest(BaseModel):
+    input: str = ""
 
 class UserCreate(BaseModel):
     username: str
@@ -270,3 +276,253 @@ def get_my_submissions(
             detail="No Submissions Found"
         )
     return submissions
+
+
+@app.post("/submissions/{submission_id}/run")
+def run_submission(
+    submission_id: int,
+    request: RunRequest,
+    db: Session = Depends(get_db),
+    current_user: Users = Depends(get_current_user)
+):
+    submission = db.query(Submission).filter(
+        Submission.id == submission_id
+    ).first()
+
+    if not submission:
+        raise HTTPException(
+            status_code=404,
+            detail="Submission not found"
+        )
+
+    if submission.user_id != current_user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="You are not authorized to run this submission"
+        )
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+
+        source_file = os.path.join(temp_dir, "main.py")
+
+        with open(source_file, "w") as file:
+            file.write(submission.code)
+
+        submission.status = "running"
+        db.commit()
+
+        try:
+            result = subprocess.run(
+                ["python", source_file],
+                input=request.input,
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+
+            output = result.stdout
+            error = result.stderr
+
+            if error:
+                lines = error.splitlines()
+
+                if lines and lines[0].startswith("  File"):
+                    lines.pop(0)
+
+                error = "\n".join(lines)
+
+            if result.returncode == 0:
+                submission.status = "completed"
+            else:
+                submission.status = "failed"
+
+            submission.output = output
+            submission.error = error
+
+            db.commit()
+            db.refresh(submission)
+
+            return {
+                "id": submission.id,
+                "status": submission.status,
+                "output": submission.output,
+                "error": submission.error
+            }
+
+        except subprocess.TimeoutExpired:
+            submission.status = "timeout"
+            submission.output = ""
+            submission.error = "Execution timed out after 5 seconds."
+
+            db.commit()
+            db.refresh(submission)
+
+            return {
+                "id": submission.id,
+                "status": submission.status,
+                "output": submission.output,
+                "error": submission.error
+            }
+
+
+@app.post("/submissions/{submission_id}/analyze")
+def analyze_submission(
+    submission_id: int,
+    db: Session = Depends(get_db),
+    current_user: Users = Depends(get_current_user)
+):
+    submission = db.query(Submission).filter(
+        Submission.id == submission_id
+    ).first()
+
+    if not submission:
+        raise HTTPException(
+            status_code=404,
+            detail="Submission not found"
+        )
+
+    if submission.user_id != current_user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="You are not authorized to analyze this submission"
+        )
+
+    problem = db.query(Problem).filter(
+        Problem.id == submission.problem_id
+    ).first()
+
+    if not problem:
+        raise HTTPException(
+            status_code=404,
+            detail="Problem not found"
+        )
+
+    # Retrieve relevant knowledge from Pinecone
+    rag_context = get_rag_context(problem.problem)
+
+    prompt = f"""
+You are an AI coding interview assistant.
+
+Analyze the user's coding solution using the problem
+and the relevant knowledge retrieved from the knowledge base.
+
+Problem:
+{problem.problem}
+
+User's Code:
+{submission.code}
+
+Relevant Knowledge:
+{rag_context}
+
+Return ONLY valid JSON in exactly this format:
+
+{{
+    "approach": "...",
+    "time_complexity": "...",
+    "space_complexity": "...",
+    "issues": "...",
+    "suggestions": "..."
+}}
+
+Rules:
+- Keep each field concise.
+- Analyze the user's actual code.
+- Use the relevant knowledge when helpful.
+- Do not include markdown.
+- Do not include ```json.
+"""
+
+    from ai_service import ask_gemini
+
+    analysis = ask_gemini(prompt)
+
+    # Convert Gemini's JSON string into a Python dictionary
+    try:
+        analysis_json = json.loads(analysis)
+    except json.JSONDecodeError:
+        raise HTTPException(
+            status_code=500,
+            detail="AI returned invalid JSON"
+        )
+
+    # Save AI feedback to database
+    submission.ai_feedback = json.dumps(analysis_json)
+
+    db.commit()
+    db.refresh(submission)
+
+    return {
+        "submission_id": submission.id,
+        "analysis": analysis_json
+    }
+
+
+
+
+@app.post("/submissions/{submission_id}/hint")
+def get_hint(
+    submission_id: int,
+    db: Session = Depends(get_db),
+    current_user: Users = Depends(get_current_user)
+):
+    submission = db.query(Submission).filter(
+        Submission.id == submission_id
+    ).first()
+
+    if not submission:
+        raise HTTPException(
+            status_code=404,
+            detail="Submission not found"
+        )
+
+    if submission.user_id != current_user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="You are not authorized to get a hint"
+        )
+
+    problem = db.query(Problem).filter(
+        Problem.id == submission.problem_id
+    ).first()
+
+    if not problem:
+        raise HTTPException(
+            status_code=404,
+            detail="Problem not found"
+        )
+
+    rag_context = get_rag_context(problem.problem)
+
+    prompt = f"""
+You are a coding interview mentor.
+
+Problem:
+{problem.problem}
+
+User's Code:
+{submission.code}
+
+Relevant Knowledge:
+{rag_context}
+
+Give the user ONE useful hint.
+
+Rules:
+- Do NOT provide the complete solution.
+- Do NOT provide complete code.
+- Do NOT reveal the final answer.
+- Point the user toward the next idea they should consider.
+- Keep the hint under 3 sentences.
+- Return ONLY the hint text.
+- Do not use JSON.
+- Do not use markdown.
+"""
+    from ai_service import ask_gemini
+
+    hint = ask_gemini(prompt)
+
+    return {
+        "submission_id": submission.id,
+        "hint": hint
+    }

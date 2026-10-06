@@ -1,0 +1,35 @@
+Time and Space Complexity
+
+Time Complexity describes how the running time of an algorithm grows as the input size increases.
+
+Common time complexities:
+
+O(1):
+Constant time. The number of operations does not depend on input size.
+
+O(log n):
+Logarithmic time. The problem size is repeatedly reduced, such as Binary Search.
+
+O(n):
+Linear time. The algorithm processes the input approximately once.
+
+O(n log n):
+Common in efficient sorting algorithms such as Merge Sort.
+
+O(n²):
+Quadratic time. Often appears when using nested loops over the same input.
+
+Space Complexity describes how much additional memory an algorithm requires as input size increases.
+
+O(1):
+Constant additional space.
+
+O(n):
+Additional memory grows linearly with the input size.
+
+When analyzing an algorithm:
+1. Identify loops and how many times they execute.
+2. Identify nested loops.
+3. Check whether the input size is being divided.
+4. Identify additional data structures.
+5. Consider recursive call stack usage.

@@ -1,0 +1,32 @@
+Two Pointers
+
+The Two Pointers technique uses two indices to process an array or sequence efficiently.
+
+The pointers can move toward each other or move in the same direction depending on the problem.
+
+Common patterns:
+
+1. Opposite-direction pointers:
+One pointer starts at the beginning and another at the end.
+Move the pointers based on a condition.
+
+2. Same-direction pointers:
+Both pointers move from left to right, often at different speeds or representing different positions.
+
+Two Pointers is commonly useful for:
+- Searching pairs in sorted arrays.
+- Removing duplicates from sorted arrays.
+- Reversing arrays or strings.
+- Problems involving pairs or ranges.
+
+Time Complexity:
+Many Two Pointers solutions run in O(n) because each pointer moves through the array a limited number of times.
+
+Space Complexity:
+Usually O(1) when no additional data structure is required.
+
+Common mistakes:
+- Moving the wrong pointer.
+- Forgetting to move a pointer after processing an element.
+- Using Two Pointers when the required input properties are not satisfied.
+- Incorrectly handling duplicate values.

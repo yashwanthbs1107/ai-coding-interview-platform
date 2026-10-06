@@ -1,0 +1,25 @@
+Binary Search
+
+Binary Search works on sorted data.
+
+The algorithm maintains a search range using low and high indices.
+
+At each step:
+1. Calculate the middle index.
+2. Compare the middle element with the target.
+3. If the middle element equals the target, return the result.
+4. If the target is greater, search the right half.
+5. If the target is smaller, search the left half.
+
+Time Complexity:
+O(log n)
+
+Space Complexity:
+O(1) for the iterative approach.
+
+Common mistakes:
+- Using binary search on unsorted data.
+- Incorrectly updating low or high.
+- Using the wrong loop condition.
+- Calculating mid incorrectly.
+- Forgetting the target-not-found case.
